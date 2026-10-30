@@ -1,102 +1,124 @@
+require("dotenv").config();
+
 const express = require("express");
+const path = require("path");
+const db = require("./database/database");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
 
-// In-memory collection. Data resets when the server restarts.
-let books = [
-  { id: 1, title: "The Great Gatsby", author: "F. Scott Fitzgerald" },
-  { id: 2, title: "Atomic Habits", author: "James Clear" }
-];
-let nextId = 3;
-
-// GET: Retrieve all books.
+// GET all books
 app.get("/books", (req, res) => {
-  res.status(200).json(books);
+    db.all("SELECT * FROM books", [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+
+        res.json(rows);
+    });
 });
 
-// GET: Retrieve one book by ID.
+// GET one book
 app.get("/books/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const book = books.find((item) => item.id === id);
+    db.get(
+        "SELECT * FROM books WHERE id = ?",
+        [req.params.id],
+        (err, row) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
 
-  if (!Number.isInteger(id) || id < 1 || !book) {
-    return res.status(404).json({ message: "Book not found" });
-  }
+            if (!row) {
+                return res.status(404).json({ message: "Book not found" });
+            }
 
-  return res.status(200).json(book);
+            res.json(row);
+        }
+    );
 });
 
-// POST: Create a book.
+// CREATE a book
 app.post("/books", (req, res) => {
-  const { title, author } = req.body || {};
+    const { title, author, year } = req.body;
 
-  if (typeof title !== "string" || !title.trim() ||
-      typeof author !== "string" || !author.trim()) {
-    return res.status(400).json({
-      message: "Both title and author are required as non-empty strings."
-    });
-  }
+    if (!title || !author) {
+        return res.status(400).json({
+            message: "Title and author are required"
+        });
+    }
 
-  const newBook = {
-    id: nextId++,
-    title: title.trim(),
-    author: author.trim()
-  };
+    db.run(
+        "INSERT INTO books (title, author, year) VALUES (?, ?, ?)",
+        [title, author, year || null],
+        function (err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
 
-  books.push(newBook);
-  return res.status(201).json(newBook);
+            res.status(201).json({
+                id: this.lastID,
+                title,
+                author,
+                year: year || null
+            });
+        }
+    );
 });
 
-// PUT: Update an existing book.
+// UPDATE a book
 app.put("/books/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const book = books.find((item) => item.id === id);
+    const { title, author, year } = req.body;
 
-  if (!Number.isInteger(id) || id < 1 || !book) {
-    return res.status(404).json({ message: "Book not found" });
-  }
+    if (!title || !author) {
+        return res.status(400).json({
+            message: "Title and author are required"
+        });
+    }
 
-  const { title, author } = req.body || {};
+    db.run(
+        "UPDATE books SET title = ?, author = ?, year = ? WHERE id = ?",
+        [title, author, year || null, req.params.id],
+        function (err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
 
-  if (typeof title !== "string" || !title.trim() ||
-      typeof author !== "string" || !author.trim()) {
-    return res.status(400).json({
-      message: "Both title and author are required as non-empty strings."
-    });
-  }
+            if (this.changes === 0) {
+                return res.status(404).json({ message: "Book not found" });
+            }
 
-  book.title = title.trim();
-  book.author = author.trim();
-  return res.status(200).json(book);
+            res.json({
+                id: Number(req.params.id),
+                title,
+                author,
+                year: year || null
+            });
+        }
+    );
 });
 
-// DELETE: Remove a book.
+// DELETE a book
 app.delete("/books/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const index = books.findIndex((item) => item.id === id);
+    db.run(
+        "DELETE FROM books WHERE id = ?",
+        [req.params.id],
+        function (err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
 
-  if (!Number.isInteger(id) || id < 1 || index === -1) {
-    return res.status(404).json({ message: "Book not found" });
-  }
+            if (this.changes === 0) {
+                return res.status(404).json({ message: "Book not found" });
+            }
 
-  const [deletedBook] = books.splice(index, 1);
-  return res.status(200).json({
-    message: "Book deleted successfully",
-    book: deletedBook
-  });
-});
-
-// Return a JSON error for malformed JSON request bodies.
-app.use((err, req, res, next) => {
-  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
-    return res.status(400).json({ message: "Invalid JSON request body" });
-  }
-  return next(err);
+            res.json({ message: "Book deleted successfully" });
+        }
+    );
 });
 
 app.listen(PORT, () => {
-  console.log(`Book API is running at http://localhost:${PORT}`);
+    console.log(`Book API running at http://localhost:${PORT}`);
 });
