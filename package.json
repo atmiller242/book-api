@@ -1,0 +1,12 @@
+{
+  "name": "book-api",
+  "version": "1.0.0",
+  "description": "A REST API built with Node.js and Express using in-memory book data.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
