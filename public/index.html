@@ -10,6 +10,23 @@
 <body>
     <div class="container">
         <h1>Book Management System</h1>
+        <h2>Login</h2>
+
+<form id="loginForm">
+    <input type="text" id="username"
+           placeholder="Username" required>
+
+    <input type="password" id="password"
+           placeholder="Password" required>
+
+    <button type="submit">Login</button>
+</form>
+
+<button type="button" id="logoutButton" hidden>
+    Logout
+</button>
+
+<p id="loginStatus"></p>
 
         <form id="bookForm">
             <input type="hidden" id="bookId">
